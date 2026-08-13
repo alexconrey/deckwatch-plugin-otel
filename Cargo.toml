@@ -1,0 +1,18 @@
+[package]
+name = "deckwatch-plugin-otel"
+version = "0.1.0"
+edition = "2021"
+description = "Deckwatch plugin — injects an OpenTelemetry Collector sidecar and OTEL env vars"
+repository = "https://github.com/alexconrey/deckwatch-plugin-otel"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+deckwatch-plugin-sdk = { git = "https://github.com/alexconrey/deckwatch-plugin-sdk", tag = "v0.8.2" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+extism-pdk = "1"
