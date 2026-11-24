@@ -1,2 +1,3 @@
 [build]
+# Always compile to WASM. Tests pass the host triple explicitly (see Makefile).
 target = "wasm32-unknown-unknown"

@@ -10,10 +10,10 @@ permissions:
 
 jobs:
   build:
-    name: Build WASM artifact
+    name: Build and publish plugin.wasm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -21,7 +21,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -29,17 +29,50 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build
-        run: cargo build --release --target wasm32-unknown-unknown
+      - name: Check the tag matches Cargo.toml
+        run: |
+          VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $VERSION" >&2
+            exit 1
+          fi
 
-      - name: Stage artifact
+      - name: Test
+        run: |
+          HOST=$(rustc -vV | grep "^host:" | cut -d' ' -f2)
+          cargo test --locked --target "$HOST"
+
+      - name: Build
+        run: cargo build --locked --release --target wasm32-unknown-unknown
+
+      - name: Stage artifact and checksum
         run: |
           mkdir -p dist
           cp target/wasm32-unknown-unknown/release/deckwatch_plugin_otel.wasm dist/plugin.wasm
-          ls -lh dist/plugin.wasm
+          (cd dist && sha256sum plugin.wasm > plugin.wasm.sha256)
+          SHA=$(cut -d' ' -f1 dist/plugin.wasm.sha256)
+          ls -l dist/plugin.wasm
+          cat > dist/release-notes.md <<EOF
+          **plugin.wasm sha256:** \`$SHA\`
 
+          Pin it in the deckwatch plugin settings:
+
+          \`\`\`json
+          {
+            "name": "otel",
+            "source": { "type": "github", "repo": "${GITHUB_REPOSITORY}", "ref": "${GITHUB_REF_NAME}", "path": "plugin.wasm", "use_release": true },
+            "sha256": "$SHA",
+            "allowed_hosts": []
+          }
+          \`\`\`
+          EOF
+
+      # Third-party action with write access: pinned to a commit (v3.0.4).
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3
         with:
-          files: dist/plugin.wasm
+          files: |
+            dist/plugin.wasm
+            dist/plugin.wasm.sha256
+          body_path: dist/release-notes.md
           generate_release_notes: true
