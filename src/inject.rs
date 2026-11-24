@@ -439,6 +439,7 @@ mod tests {
             labels: map(labels),
             plugin_outputs: HashMap::new(),
             provisioned_resources: HashMap::new(),
+            ..Default::default()
         }
     }
 

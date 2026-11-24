@@ -26,7 +26,7 @@ When enabled, the plugin adds:
 | | Version |
 |---|---|
 | deckwatch | **0.6.4 or later.** The plugin declares `min_deckwatch_version: 0.6.4`. Releases before 0.6.4 do not check that field and drop sidecar volumes, so the collector would start with the image's default configuration, which listens on 0.0.0.0 and exports nowhere. Do not install this plugin on them. |
-| deckwatch-plugin-sdk | `main` at `d4c0280`: v0.9.0 plus `McpTuningField`. deckwatch 0.6.4+ also accepts sidecar volumes, separate requests and limits, and `min_deckwatch_version`, which are not in the SDK yet (SDK PRs #13 and #11). [`src/host.rs`](src/host.rs) emits them until the SDK ships them. |
+| deckwatch-plugin-sdk | `v0.10.0`. The SDK now has sidecar volumes, separate requests and limits, and `min_deckwatch_version` (SDK #13 and #11), but [`src/host.rs`](src/host.rs) still emits those fields itself; replacing it with the SDK types is a follow-up. |
 | Collector image | The default is `otel/opentelemetry-collector-contrib:0.165.0` pinned by digest. Custom images must be collector **0.144.0 or later**, because that release introduced the `otlp_grpc` and `otlp_http` exporter names. |
 
 ## Install

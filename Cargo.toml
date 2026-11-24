@@ -14,7 +14,7 @@ crate-type = ["cdylib", "rlib"]
 # SDK main (v0.9.0 + McpTuningField), pinned by commit. deckwatch >= 0.6.4
 # also accepts sidecar volumes, split resources and min_deckwatch_version,
 # which are not in the SDK yet; src/host.rs emits those (see its docs).
-deckwatch-plugin-sdk = { git = "https://github.com/alexconrey/deckwatch-plugin-sdk", rev = "d4c0280867a8c5cb97de7d6ef53b71bc2a252feb" }
+deckwatch-plugin-sdk = { git = "https://github.com/alexconrey/deckwatch-plugin-sdk", tag = "v0.10.0" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.11"

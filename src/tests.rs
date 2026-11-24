@@ -36,6 +36,7 @@ fn ctx(annotations: &[(&str, &str)]) -> PluginContext {
         labels: HashMap::from([("app".to_string(), "checkout".to_string())]),
         plugin_outputs: HashMap::new(),
         provisioned_resources: HashMap::new(),
+        ..Default::default()
     }
 }
 
@@ -83,6 +84,7 @@ fn provision_req(fields: &[(&str, &str)]) -> ResourceProvisionRequest {
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect(),
+        ..Default::default()
     }
 }
 
@@ -520,6 +522,7 @@ fn deprovision_names_what_is_left_behind() {
         resource_id: "tracing".into(),
         state: HashMap::new(),
         fields: HashMap::new(),
+        ..Default::default()
     });
     assert!(result.errors.is_empty());
     assert!(result.message.contains("shop-web-otelcol"));

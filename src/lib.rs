@@ -68,6 +68,7 @@ pub fn metadata_value() -> Value {
         config_schema: settings::schema(),
         resources: vec![inject::resource_decl()],
         mcp_tuning_fields: vec![],
+        ..Default::default()
     })
 }
 
@@ -203,6 +204,7 @@ pub fn deprovision_inner(req: &ResourceDeprovisionRequest) -> ResourceDeprovisio
             secret = names.secret,
             ns = req.namespace,
         ),
+        ..Default::default()
     }
 }
 
