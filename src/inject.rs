@@ -400,8 +400,8 @@ pub fn resource_decl() -> PluginResource {
                 OTEL_SERVICE_NAME,
                 "Service name",
                 "Optional OTEL_SERVICE_NAME for every workload in the application. Leave empty \
-                 so each deployment keeps its own (deckwatch's trace view looks traces up by \
-                 deployment name).",
+                 so each deployment keeps its own (deckwatch looks traces up by deployment \
+                 name).",
             ),
             field(
                 OTEL_RESOURCE_ATTRIBUTES,

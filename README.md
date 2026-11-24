@@ -166,7 +166,7 @@ deployments alone.
 
 | Field | Description |
 |---|---|
-| `OTEL_SERVICE_NAME` | Optional: one service name for every workload. Leave it empty so each deployment keeps its own. deckwatch's trace view looks traces up by deployment name. |
+| `OTEL_SERVICE_NAME` | Optional: one service name for every workload. Leave it empty so each deployment keeps its own. deckwatch looks traces up by deployment name. |
 | `OTEL_RESOURCE_ATTRIBUTES` | Optional extra `key=value` pairs (%-encoded) appended after `k8s.namespace.name` and `deckwatch.application.name`. |
 
 After you change the plugin settings, click **Refresh** on the resource (or use the
@@ -332,15 +332,17 @@ namespace.
 
 ## How this relates to deckwatch's tracing settings
 
-deckwatch's `tracing` settings (see `docs/TRACING.md` in deckwatch) configure the trace
-viewer, not this plugin:
+deckwatch's `tracing` settings (see `docs/TRACING.md` in deckwatch) configure deckwatch's
+own trace queries, not this plugin:
 
 - **`tracing.otlp_endpoint` / `tracing.otlp_insecure`** describe where your backend receives
   OTLP. Plugins cannot read deckwatch settings, so copy the same values into `OTLP_ENDPOINT`
   and `OTLP_INSECURE`.
-- **`tracing.query_url`, `tracing.ui_url`, `tracing.backend_kind`** drive the deployment's
-  **Traces** card. The card searches for `service.name` equal to the deployment name, which is
-  why `OTEL_SERVICE_NAME` defaults to the deployment name.
+- **`tracing.query_url`, `tracing.ui_url`, `tracing.backend_kind`** configure deckwatch's
+  trace query API (`GET /api/namespaces/{ns}/deployments/{name}/traces?service=…`) and its
+  links into Grafana or the Jaeger UI. deckwatch looks traces up by `service.name` equal to
+  the deployment name, which is why `OTEL_SERVICE_NAME` defaults to the deployment name.
+  The query API speaks Jaeger's query protocol, so it does not work against Tempo.
 
 ## Security notes
 
