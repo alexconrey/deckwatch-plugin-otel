@@ -8,18 +8,21 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Unit tests (host target)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -30,13 +33,13 @@ jobs:
       - name: Run unit tests
         run: |
           HOST=$(rustc -vV | grep "^host:" | cut -d' ' -f2)
-          cargo test --target "$HOST"
+          cargo test --locked --target "$HOST"
 
   build-wasm:
     name: Build WASM artifact
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable + wasm32 target
         uses: dtolnay/rust-toolchain@stable
@@ -44,7 +47,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -53,24 +56,44 @@ jobs:
           key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Build WASM
-        run: cargo build --release --target wasm32-unknown-unknown
+        run: cargo build --locked --release --target wasm32-unknown-unknown
 
-      - name: Report artifact size
-        run: ls -lh target/wasm32-unknown-unknown/release/deckwatch_plugin_otel.wasm
+      - name: Stage artifact and checksum
+        run: |
+          mkdir -p dist
+          cp target/wasm32-unknown-unknown/release/deckwatch_plugin_otel.wasm dist/plugin.wasm
+          (cd dist && sha256sum plugin.wasm > plugin.wasm.sha256)
+          ls -l dist/plugin.wasm
+          cat dist/plugin.wasm.sha256
+
+      # The plugin never makes outbound requests, so the module must not
+      # import extism's HTTP host function (allowed_hosts stays empty).
+      - name: Check the module has no HTTP import
+        run: |
+          if grep -q http_request dist/plugin.wasm; then
+            echo "plugin.wasm imports http_request" >&2
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: plugin-wasm
+          path: dist/plugin.wasm*
 
   clippy:
-    name: Clippy lint (host target)
+    name: Clippy lint (host and wasm32)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable + clippy
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+          targets: wasm32-unknown-unknown
 
       - name: Cache cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/registry
@@ -81,13 +104,14 @@ jobs:
       - name: Clippy
         run: |
           HOST=$(rustc -vV | grep "^host:" | cut -d' ' -f2)
-          cargo clippy --target "$HOST" -- -D warnings
+          cargo clippy --locked --target "$HOST" --all-targets -- -D warnings
+          cargo clippy --locked --target wasm32-unknown-unknown -- -D warnings
 
   fmt:
     name: Rustfmt check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install Rust stable + rustfmt
         uses: dtolnay/rust-toolchain@stable
