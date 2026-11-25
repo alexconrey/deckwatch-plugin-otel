@@ -162,7 +162,7 @@ itself is updated on every save, and pods pick it up when they restart.
 
 Provision the **OpenTelemetry Collector** resource (id `tracing`) on the application:
 
-- **UI:** Application → **Infrastructure** tab → **Add OpenTelemetry Collector**.
+- **UI:** Application → **Infrastructure** tab → **Provision** on the OpenTelemetry Collector card.
 - **MCP:** `provision_resource` with `plugin_name: otel`, `resource_id: tracing`.
 - **REST:** `POST /api/namespaces/{ns}/applications/{app}/resources/otel/tracing`.
 
@@ -177,8 +177,9 @@ deployments alone.
 | `OTEL_SERVICE_NAME` | Optional: one service name for every workload. Leave it empty so each deployment keeps its own. deckwatch looks traces up by deployment name. |
 | `OTEL_RESOURCE_ATTRIBUTES` | Optional extra `key=value` pairs (%-encoded) appended after `k8s.namespace.name` and `deckwatch.application.name`. |
 
-After you change the plugin settings, click **Refresh** on the resource (or use the
-`refresh_resource` MCP tool). Refreshing renders the configuration again, updates the
+After you change the plugin settings, refresh the resource with the `refresh_resource` MCP tool
+or `PATCH /api/namespaces/{ns}/applications/{app}/resources/otel/tracing`. The UI has no
+refresh button. Refreshing renders the configuration again, updates the
 ConfigMap, and changes the sidecar's `OTELCOL_CONFIG_SHA256`, which rolls the pods.
 
 Application-level injection has limits that deployment-level injection does not have. They
@@ -197,9 +198,11 @@ apply to deckwatch 0.7.0 and 0.6.x unless noted:
 - **Removal is incomplete before deckwatch 0.7.0.** If you remove the resource while the
   application has no other plugin resource, deckwatch 0.6.x stops reconciling the
   application and leaves the sidecar and env vars in place. deckwatch 0.7.0's field sweep
-  removes them.
+  removes them from workloads it stamped with its `plugins.deckwatch.io/fields-owner`
+  annotation, and from those of applications its database knows.
 
-**Disable:** remove the resource (**Deprovision**, or the `deprovision_resource` MCP tool).
+**Disable:** remove the resource (**Remove record** on its card, or the `deprovision_resource`
+MCP tool).
 At its next reconcile, deckwatch removes the sidecar, its volumes, the env vars and the
 annotation; deckwatch 0.6.x does that only if the application still has other plugin
 resources. deckwatch never deletes the `<app>-otelcol` ConfigMap or the
@@ -377,14 +380,23 @@ own trace queries, not this plugin:
   with a read-only root filesystem, all capabilities dropped, no-new-privileges and UID 10001,
   so those settings can be enforced as soon as deckwatch supports them.
 
+## Upgrading
+
+Point `ref` at the new release and update `sha256` in the same save. deckwatch 0.7.0
+refuses that save until the masked config values are entered again
+([deckwatch#342](https://github.com/alexconrey/deckwatch/pull/342)). For this plugin that's only `OTLP_HEADERS`, and only when it's
+stored in `config`. Set through `inherit_env_keys`, as recommended above, it isn't stored, so
+there's nothing to re-enter. Every other setting is declared non-secret, so deckwatch doesn't
+mask it.
+
 ## Upgrading from 0.1.0
 
 0.1.0 used `otel/opentelemetry-collector:latest` and the image's default configuration, which
 listens on 0.0.0.0 and has no real exporter.
 
 - The settings keys have changed: `OTEL_IMAGE` is ignored, and `OTLP_ENDPOINT` must be set.
-- The application resource id is still `tracing`. Click **Refresh** on existing resources to
-  replace the old sidecar.
+- The application resource id is still `tracing`. Refresh existing resources (the
+  `refresh_resource` MCP tool) to replace the old sidecar.
 - The old resource field `OTEL_IMAGE` is ignored, and `OTEL_SERVICE_NAME` keeps its meaning.
 
 ## Building and testing
