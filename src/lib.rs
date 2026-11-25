@@ -89,7 +89,8 @@ fn render(settings: &Settings, namespace: &str, owner: &str) -> Rendered {
 
 /// `apply()` output: the deployment-level injection, or nothing when the
 /// deployment has not opted in. Invalid config injects nothing and reports
-/// errors, which deckwatch logs.
+/// errors, which deckwatch logs (deckwatch 0.7.0 also reports them as error
+/// events).
 pub fn apply_inner(ctx: &PluginContext, raw: &RawConfig) -> Value {
     let mut result = PluginResult::default();
     let (enablement, warnings) = deployment_enablement_checked(ctx);
@@ -193,10 +194,11 @@ pub fn deprovision_inner(req: &ResourceDeprovisionRequest) -> ResourceDeprovisio
         errors: vec![],
         message: format!(
             "OpenTelemetry Collector removed from application '{app}'. deckwatch drops the \
-             {sidecar} sidecar, its volumes and the OTEL_* variables on its next reconcile \
-             only if the application still has another plugin resource; otherwise remove them \
-             from the workloads' YAML. deckwatch does not delete ConfigMap '{cm}' or Secret \
-             '{secret}' in namespace '{ns}'; delete them once no workload mounts them.",
+             {sidecar} sidecar, its volumes and the OTEL_* variables on its next reconcile. \
+             Before deckwatch 0.7.0 it does that only if the application still has another \
+             plugin resource; otherwise remove them from the workloads' YAML. deckwatch does \
+             not delete ConfigMap '{cm}' or Secret '{secret}' in namespace '{ns}'; delete them \
+             once no workload mounts them.",
             app = req.application_name,
             sidecar = inject::SIDECAR_NAME,
             cm = names.config_map,

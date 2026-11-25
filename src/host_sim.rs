@@ -1,17 +1,19 @@
 //! Test-only model of how deckwatch merges `apply()` output into a
 //! Deployment, so tests can check the resulting pod spec.
 //!
-//! [`merge`] mirrors deckwatch 0.6.x (`src/plugins.rs`: `apply_env_vars`,
-//! `apply_sidecars`, `build_kube_env_var`, `volume_spec_to_k8s`,
-//! `build_resources`): env vars go into the first container unless the name
-//! exists, sidecars are added unless a container with that name exists,
-//! volumes are added unless the name exists, and injected names are recorded
-//! in `deckwatch.plugin-env/<plugin>` and `deckwatch.plugin-sidecar/<plugin>`.
+//! [`merge`] mirrors deckwatch 0.6.x and 0.7.0, which merge the same way
+//! (`src/plugins.rs`: `apply_env_vars`, `apply_sidecars`,
+//! `build_kube_env_var`, `volume_spec_to_k8s`, `build_resources`): env vars
+//! go into the first container unless the name exists, sidecars are added
+//! unless a container with that name exists, volumes are added unless the
+//! name exists, and injected names are recorded in
+//! `deckwatch.plugin-env/<plugin>` and `deckwatch.plugin-sidecar/<plugin>`.
 //!
-//! [`unmerge`] is what deckwatch does not do yet: undo a plugin's previous
-//! injection from those records when the plugin is disabled or before
-//! re-applying it. It also needs the plugin's volumes recorded, which
-//! deckwatch does not write today ([`VOLUME_ANNOTATION`]).
+//! [`unmerge`] is what deckwatch (0.7.0 and 0.6.x) does not do
+//! (deckwatch#248): undo a plugin's previous injection from those records
+//! when the plugin is disabled or before re-applying it. It also needs the
+//! plugin's volumes recorded, which deckwatch does not write
+//! ([`VOLUME_ANNOTATION`]).
 
 use std::collections::BTreeMap;
 
@@ -19,7 +21,7 @@ use serde_json::{json, Map, Value};
 
 pub const ENV_ANNOTATION: &str = "deckwatch.plugin-env/";
 pub const SIDECAR_ANNOTATION: &str = "deckwatch.plugin-sidecar/";
-/// Proposed: deckwatch does not record injected volumes today.
+/// Proposed: deckwatch (0.7.0 and 0.6.x) does not record injected volumes.
 pub const VOLUME_ANNOTATION: &str = "deckwatch.plugin-volume/";
 
 #[derive(Debug, Clone, PartialEq)]

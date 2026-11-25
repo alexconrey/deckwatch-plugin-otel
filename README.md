@@ -81,8 +81,11 @@ the plugin applies the defaults itself.
 | `MEMORY_SPIKE_PERCENTAGE` | String | `25` | `memory_limiter`: headroom below the hard limit. Must be lower than the limit percentage. |
 
 When the configuration is invalid, the plugin injects nothing. For a deployment, deckwatch
-logs the errors. For an application, provisioning is rejected and the errors are shown.
-Error messages never repeat the header values.
+logs the errors, and deckwatch 0.7.0 also returns them in the save response. If the
+deployment is labelled `deckwatch.io/application`, deckwatch 0.7.0 also shows the plugin as
+failing on that application, publishes a `PluginApplyFailed` Kubernetes Event on the
+deployment and sends a `plugin_failing` notification. For an application, provisioning is
+rejected and the errors are shown. Error messages never repeat the header values.
 
 ### Exporter headers
 
@@ -93,16 +96,20 @@ Error messages never repeat the header values.
 environment variable, in the ConfigMap, or in the resource rows deckwatch stores for an
 application.
 
-> **Known deckwatch issue:** if you save `OTLP_HEADERS` from the plugin's settings form,
-> deckwatch stores it encrypted and then passes the **ciphertext** to the plugin without
-> decrypting it. The plugin detects this, refuses the value and reports an error. Until that
-> is fixed in deckwatch, set the value in one of these ways:
+> **Known deckwatch issue,** in 0.7.0 and 0.6.x
+> ([deckwatch#251](https://github.com/alexconrey/deckwatch/issues/251)): if you save `OTLP_HEADERS` from the
+> plugin's settings form while deckwatch has `DECKWATCH_ENCRYPTION_KEY` set, deckwatch stores
+> it encrypted and then passes the **ciphertext** to the plugin without decrypting it. The
+> plugin detects this, refuses the value and reports an error. Until that is fixed in
+> deckwatch, set the value in one of these ways:
 >
 > - **Recommended:** add an `OTLP_HEADERS` environment variable to the deckwatch Deployment
 >   from a Kubernetes Secret, then set `"inherit_env_keys": ["OTLP_HEADERS"]` on the plugin.
->   With this approach the value is never stored in deckwatch's database.
+>   With this approach the value is never stored in deckwatch's database. On deckwatch 0.6.x
+>   it's the only way that keeps the value out of `GET /api/settings` (see the next item).
 > - Use the `update_plugin_config` MCP tool or `PUT /api/settings`. deckwatch then stores the
->   value unencrypted but masks it when settings are read.
+>   value unencrypted. deckwatch 0.7.0 masks it when settings are read, but 0.6.x returns it
+>   in plain text from `GET /api/settings`, which needs no authentication.
 
 The Secret is mounted into the sidecar only, never into the application container. After you
 rotate a header value, restart the workloads (for example with `restart_application`): the
@@ -131,10 +138,11 @@ skips containers and env vars that already exist. Repeated saves therefore chang
 and cause no restarts.
 
 **Disable:** set `deckwatch.io/otel: disabled` (or remove the opt-in) and save. The plugin
-then returns nothing. **However, deckwatch 0.6.x does not remove what a plugin added
-earlier**, even though it records it in the `deckwatch.plugin-env/otel` and
-`deckwatch.plugin-sidecar/otel` annotations. Until that is fixed, remove the following by
-hand in the deployment YAML:
+then returns nothing. **However, deckwatch (0.7.0 and 0.6.x) does not remove what a plugin
+added earlier**, even though it records it in the `deckwatch.plugin-env/otel` and
+`deckwatch.plugin-sidecar/otel` annotations
+([deckwatch#248](https://github.com/alexconrey/deckwatch/issues/248)). Until that is fixed, remove the following
+by hand in the deployment YAML:
 
 - the `otel-collector` container;
 - the `otelcol-config` and `otelcol-headers` volumes;
@@ -173,8 +181,8 @@ After you change the plugin settings, click **Refresh** on the resource (or use 
 `refresh_resource` MCP tool). Refreshing renders the configuration again, updates the
 ConfigMap, and changes the sidecar's `OTELCOL_CONFIG_SHA256`, which rolls the pods.
 
-On deckwatch 0.6.x, application-level injection has limits that deployment-level injection
-does not have:
+Application-level injection has limits that deployment-level injection does not have. They
+apply to deckwatch 0.7.0 and 0.6.x unless noted:
 
 - **Static values.** The reconciler applies one fixed set of env vars to every workload, so
   there is no per-deployment `OTEL_SERVICE_NAME` or `k8s.deployment.name`. The plugin
@@ -186,18 +194,20 @@ does not have:
 - **CronJobs never finish.** The reconciler injects the sidecar into cronjob pods as an
   ordinary container, and the collector never exits, so their Jobs never complete. Do not
   enable the collector at application level for applications that have cronjobs.
-- **Removal is incomplete.** If you remove the resource while the application has no other
-  plugin resource, deckwatch stops reconciling the application and leaves the sidecar and
-  env vars in place.
+- **Removal is incomplete before deckwatch 0.7.0.** If you remove the resource while the
+  application has no other plugin resource, deckwatch 0.6.x stops reconciling the
+  application and leaves the sidecar and env vars in place. deckwatch 0.7.0's field sweep
+  removes them.
 
 **Disable:** remove the resource (**Deprovision**, or the `deprovision_resource` MCP tool).
-If the application still has other plugin resources, deckwatch removes the sidecar, its
-volumes, the env vars and the annotation at its next reconcile. deckwatch never deletes
-the `<app>-otelcol` ConfigMap or the `<app>-otelcol-headers` Secret; delete them once no
-workload uses them.
+At its next reconcile, deckwatch removes the sidecar, its volumes, the env vars and the
+annotation; deckwatch 0.6.x does that only if the application still has other plugin
+resources. deckwatch never deletes the `<app>-otelcol` ConfigMap or the
+`<app>-otelcol-headers` Secret (0.7.0 can delete objects a plugin names, but only
+ServiceAccounts and Jobs); delete them once no workload uses them.
 
 `associate_plugin` (the application's **Plugins** list) has no effect on this plugin:
-deckwatch 0.6.x's reconciler does not use plugin associations.
+deckwatch's reconciler (0.7.0 and 0.6.x) does not use plugin associations.
 
 ## Before and after
 
@@ -360,8 +370,8 @@ own trace queries, not this plugin:
   functions (config, input, output, memory, errors).
 - **Pinned image.** The default image is pinned by digest, and `:latest` and untagged images
   are rejected.
-- **securityContext.** deckwatch does not yet let plugins set a container `securityContext`,
-  so the pod spec cannot enforce `runAsNonRoot`, `readOnlyRootFilesystem`,
+- **securityContext.** deckwatch (0.7.0 and 0.6.x) does not let plugins set a container
+  `securityContext`, so the pod spec cannot enforce `runAsNonRoot`, `readOnlyRootFilesystem`,
   `allowPrivilegeEscalation: false` and dropping all capabilities. The default image runs as
   UID 10001 from a `scratch` base with no file capabilities. It was verified to run unchanged
   with a read-only root filesystem, all capabilities dropped, no-new-privileges and UID 10001,
